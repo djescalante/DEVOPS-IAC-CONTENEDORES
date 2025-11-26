@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: dev-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_API_URL=http://localhost:4000
+    networks:
+      - dev-network
+    command: npm start
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: dev-backend
+    ports:
+      - "4000:4000"
+      - "9229:9229" # Puerto de debug
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/logs:/app/logs
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_USER=devuser
+      - DB_PASSWORD=devpass
+      - DB_NAME=devdb
+      - LOG_LEVEL=debug
+    networks:
+      - dev-network
+    depends_on:
+      - database
+    command: npm run dev
+
+  database:
+    image: mysql:8.0
+    container_name: dev-database
+    ports:
+      - "3306:3306" # Puerto expuesto para herramientas externas
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpass
+      - MYSQL_DATABASE=devdb
+      - MYSQL_USER=devuser
+      - MYSQL_PASSWORD=devpass
+    volumes:
+      - dev-mysql-data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    networks:
+      - dev-network
+
+  # Herramienta de administración de BD
+  adminer:
+    image: adminer
+    container_name: dev-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - dev-network
+    depends_on:
+      - database
+
+networks:
+  dev-network:
+    driver: bridge
+
+volumes:
+  dev-mysql-data:
